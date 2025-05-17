@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ChevronLeft, Users, Calendar, MapPin, ListOrdered, BookOpen, Sparkles, ShieldAlert, AlertTriangle, Info, Handshake, Users2, Utensils, Tv, BookHeart, Link2 as LinkIcon, Target, Award, Zap, Sun, Feather, Crown, MessageSquare, CheckCircle, Home, Flame, Mountain, GitBranchPlus, Aperture, Sailboat, CalendarDays, BookOpenText, Landmark, Languages, ClockIcon, UsersRound, Layers, BarChart3, ListChecks, Star, HelpingHand, UserCheck, TrendingUp, Music } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { hanumanEventsData } from '@/data/events-data';
-import { getDetailedEventById, type DetailedHanumanEvent, type FestivalSpecificDetails } from '@/data/event-details-data'; 
+import { getDetailedEventById, type DetailedHanumanEvent, detailedEventsData } from '@/data/event-details-data'; // Ensure detailedEventsData is imported
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import React, { type ReactNode } from 'react';
@@ -23,12 +24,19 @@ interface DetailCardProps {
   className?: string;
 }
 
-type Props = {
+// Explicitly type the props for generateMetadata
+type GenerateMetadataProps = {
   params: { slug: string };
 };
 
+// Type for the page component itself was EventDetailPageProps, changed to inline
+// type EventDetailPageProps = {
+//   params: { slug: string };
+//   searchParams?: { [key: string]: string | string[] | undefined };
+// };
+
 export async function generateMetadata(
-  { params }: Props,
+  { params }: GenerateMetadataProps,
   parent: ResolvingMetadata
 ): Promise<Metadata> {
   const event = getDetailedEventById(params.slug) || hanumanEventsData.find(e => e.slug === params.slug);
@@ -40,23 +48,34 @@ export async function generateMetadata(
     };
   }
   
-  const eventTitle = event.name || event.title;
-  const eventDescription = event.mainDescription || event.description;
+  const eventTitle = 'name' in event && event.name ? event.name : ('title' in event && event.title ? event.title : 'Event');
+  const eventDescription = 'mainDescription' in event && event.mainDescription ? event.mainDescription : ('description'in event && event.description ? event.description : 'Details about the event.');
   const eventImage = event.imageUrl ? (event.imageUrl.startsWith('http') ? event.imageUrl : `${SITE_URL}${event.imageUrl}`) : `${SITE_URL}/og-default-event.jpg`;
 
-  const keywords = ['Hanuman Events', 'Hindu Festivals', eventTitle];
-  if ('significance' in event && Array.isArray(event.significance)) {
-    keywords.push(...event.significance);
+  const keywordsList: string[] = ['Hanuman Events', 'Hindu Festivals', eventTitle];
+  
+  if ('significance' in event && event.significance && Array.isArray(event.significance) && typeof event.significance[0] === 'string') { // For HanumanEvent
+    keywordsList.push(...(event.significance as string[]));
+  } else if ('significance_detail' in event && (event as DetailedHanumanEvent).significance_detail) { // For DetailedHanumanEvent
+    keywordsList.push((event as DetailedHanumanEvent).significance_detail.key_idea);
+    keywordsList.push((event as DetailedHanumanEvent).significance_detail.moral_lesson);
   }
-  if (event.festivalDetails?.type) {
-    keywords.push(event.festivalDetails.type);
+
+  if ('festivalDetails' in event && event.festivalDetails?.type) {
+    keywordsList.push(event.festivalDetails.type);
+  }
+  if ('festivalDetails' in event && event.festivalDetails?.associatedDeity?.name) {
+     keywordsList.push(event.festivalDetails.associatedDeity.name);
+  }
+  if ('characters_involved' in event && Array.isArray(event.characters_involved)) {
+    keywordsList.push(...event.characters_involved.map(c => c.name));
   }
 
 
   return {
     title: `${eventTitle}`, 
     description: eventDescription,
-    keywords: keywords,
+    keywords: keywordsList,
     alternates: {
       canonical: `${SITE_URL}/events/${params.slug}`,
     },
@@ -73,7 +92,6 @@ export async function generateMetadata(
         },
       ],
       type: 'article', 
-      // publishedTime: event.date, // If event.date is parsable and relevant
       section: 'Hindu Events and Festivals',
     },
     twitter: {
@@ -129,7 +147,7 @@ const ListDisplay: React.FC<{ items: string[] | undefined | Array<{type: string,
       <ListElement className={cn(listStyle, "list-inside space-y-1.5", itemClassName)}>
         {items.map((item, index) => (
           <li key={typeof item === 'string' ? index : item.type || index} className="flex items-start">
-            {itemIcon && React.cloneElement(itemIcon as React.ReactElement, { className: "h-4 w-4 mr-2 mt-0.5 text-accent flex-shrink-0"})}
+            {itemIcon && React.isValidElement(itemIcon) && React.cloneElement(itemIcon as React.ReactElement, { className: "h-4 w-4 mr-2 mt-0.5 text-accent flex-shrink-0"})}
             {typeof item === 'string' ? 
               <span>{item}</span> :
               <span><strong>{item.type}:</strong> {item.description}</span>
@@ -142,7 +160,13 @@ const ListDisplay: React.FC<{ items: string[] | undefined | Array<{type: string,
 };
 
 
-export default function EventDetailPage({ params }: { params: { slug: string } }) {
+export default function EventDetailPage({ 
+  params,
+  searchParams // searchParams is optional and might not be used, but good to include for completeness
+}: { 
+  params: { slug: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
   const event = getDetailedEventById(params.slug);
 
   if (!event) {
@@ -209,7 +233,7 @@ export default function EventDetailPage({ params }: { params: { slug: string } }
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
              <div className="absolute bottom-0 left-0 p-6 md:p-8">
-                {React.isValidElement(event.icon) ? React.cloneElement(event.icon, { className: "h-10 w-10 text-white drop-shadow-lg mb-2" }) : event.icon}
+                {React.isValidElement(event.icon) ? React.cloneElement(event.icon as React.ReactElement, { className: "h-10 w-10 text-white drop-shadow-lg mb-2" }) : event.icon}
                 <h2 className="text-3xl md:text-4xl font-bold text-white drop-shadow-md">{event.name}</h2>
             </div>
         </div>
@@ -240,7 +264,7 @@ export default function EventDetailPage({ params }: { params: { slug: string } }
                        <Award className="h-5 w-5 mr-2 text-accent" />
                        {festivalDetails.associatedDeity.name} <Badge variant="outline" className="ml-2 text-xs">Primary Deity</Badge>
                     </div>
-                    <ListDisplay items={festivalDetails.associatedDeity.attributes} title="Attributes:" />
+                    {festivalDetails.associatedDeity.attributes && <ListDisplay items={festivalDetails.associatedDeity.attributes} title="Attributes:" />}
                     {festivalDetails.associatedDeity.mount && festivalDetails.associatedDeity.mount !== "None" && (
                          <p className="text-xs text-foreground/80 mt-1"><strong>Mount:</strong> {festivalDetails.associatedDeity.mount}</p>
                     )}
@@ -281,7 +305,7 @@ export default function EventDetailPage({ params }: { params: { slug: string } }
             <ListDisplay items={festivalDetails.celebrationRituals.commonPractices} title="Common Practices:" itemIcon={<CheckCircle />} />
             <ListDisplay items={festivalDetails.celebrationRituals.specialRituals} title="Special Rituals:" itemIcon={<Star />} />
             <ListDisplay items={festivalDetails.celebrationRituals.preparation} title="Preparation:" itemIcon={<Layers />} />
-            <ListDisplay items={festivalDetails.celebrationRituals.method} title="Method:" itemIcon={<ListChecks />} />
+            {festivalDetails.celebrationRituals.method && <ListDisplay items={festivalDetails.celebrationRituals.method} title="Method:" itemIcon={<ListChecks />} />}
             {festivalDetails.celebrationRituals.completion && <SectionItem label="Completion Ritual" value={festivalDetails.celebrationRituals.completion} />}
             {festivalDetails.celebrationRituals.schedules && festivalDetails.celebrationRituals.schedules.length > 0 && (
               <ListDisplay items={festivalDetails.celebrationRituals.schedules} title="Common Schedules:" itemIcon={<ClockIcon />} />
@@ -462,3 +486,5 @@ export async function generateStaticParams() {
   
   return Array.from(allSlugsSet).map(slug => ({ slug }));
 }
+
+    
