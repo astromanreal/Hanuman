@@ -13,7 +13,7 @@ import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import React, { type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import type { Metadata, ResolvingMetadata } from 'next';
+import type { Metadata, ResolvingMetadata, PageProps } from 'next';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
 
@@ -24,15 +24,13 @@ interface DetailCardProps {
   className?: string;
 }
 
-// Explicitly type the props for generateMetadata
-type GenerateMetadataProps = {
+// Define a type for the component's props
+type EventDetailPageProps = {
   params: { slug: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
 };
 
-// Type for the page component itself was EventDetailPageProps, changed to inline
-// type EventDetailPageProps = {
-//   params: { slug: string };
-//   searchParams?: { [key: string]: string | string[] | undefined };
+// Explicitly type the props for generateMetadata using the defined type
 // };
 
 export async function generateMetadata(
