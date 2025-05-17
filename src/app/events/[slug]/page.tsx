@@ -13,7 +13,7 @@ import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import React, { type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import type { Metadata, ResolvingMetadata, PageProps } from 'next';
+import type { Metadata, ResolvingMetadata } from 'next';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
 
@@ -30,8 +30,11 @@ type EventDetailPageProps = {
   searchParams?: { [key: string]: string | string[] | undefined };
 };
 
-// Explicitly type the props for generateMetadata using the defined type
-// };
+// Define a type for the component's props
+type EventDetailPageProps = {
+  params: { slug: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
+};
 
 export async function generateMetadata(
   { params }: GenerateMetadataProps,
